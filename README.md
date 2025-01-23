@@ -16,7 +16,7 @@ The Plugin requires the use of the Grav the admin plugin.
 - until settings or allow a clicked button only scripts and cookies are includes that are set to status activated in admin banner manager
 - status and basic initialisation are used from Cookie Consent JavaScript API Osano
 - button allow = status allow - allow all script from admin banner manager
-- button deny = status: deny - allow necessary scripts (scripts set to standard: active in admin banner manager)
+- button deny = status: deny - allow necessary scripts (scripts set to standard: active **with hidden opt-in checkbox** in admin banner manager)
 - button settings = status: dismiss - allow scripts set in website cookie settings by user opt-in (checkbox)
 - html code only active scripts are includes. On deny or opt-out they will be removed
 - cookie banner is revocable
