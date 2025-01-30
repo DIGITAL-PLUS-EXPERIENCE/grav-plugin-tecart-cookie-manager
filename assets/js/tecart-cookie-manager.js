@@ -16,7 +16,7 @@ class TecartCookieBanner{
         // JSON array with categories for cookie cookieConsentCategories
         if(this.cookieConsentCategoriesArray == null){  this.cookieConsentCategoriesArray = new Map(); }
         // JSON array with scripts for cookie cookieConsentScripts
-        if(this.cookieConsentScriptsArray == null){  this.cookieConsentScriptsArray = new Map(); }
+        if(this.cookieConsentScriptsArray == null){  this.cookieConsentScriptsArray = new Map(); }        
         // JSON array with scripts for cookie cookieConsentScripts
         if(this.cookieConsentOnScrollScriptsArray == null){ this.cookieConsentOnScrollScriptsArray = new Map(); }
 
@@ -29,7 +29,7 @@ class TecartCookieBanner{
         // Cookie for include on scroll scripts
         this.cookieConsentOnScrollScripts = this.getCookieByName('cookieconsent_onscroll_scripts');
         // Cookie for knowing that page is scrolled
-        this.cookieConsentScrolled = this.getCookieByName('cookieconsent_scrolled');
+        this.cookieConsentScrolled = this.getCookieByName('cookieconsent_scrolled');        
     }
 
     init(){
@@ -82,39 +82,36 @@ class TecartCookieBanner{
                 const tcb = new TecartCookieBanner(this.cookieBannerData, this.cookieBannerScripts, this.cookieBannerCategories);
                 if (didConsent) {
                     tcb.allowAllCookies();
-                }
-                else if (didConsent === false) {
+                } else {
                     tcb.denyAllCookies();
-                }
-                else{
-                    tcb.allowSettingsCookies()
-                }
+                }                
             },
             onRevokeChoice: function(status) {}
         }
-
         // Initialize cookie consent banner
         window.cookieconsent.initialise(cookieconsentInitialse);
 
+        // Keeps the value of the consent in the session
+        if ( this.cookieConsent != '' && this.cookieConsent != null ){
+            window.sessionStorage['consent'] = this.cookieConsent;
+        } else if (this.cookieConsent == '' &&  window.sessionStorage['consent'] != null ){
+            this.cookieConsent = window.sessionStorage['consent'];
+        }
+
         //if status settings
         if(this.cookieConsent === 'dismiss'){
-            //console.log(this.cookieConsentScripts);
-            this.createScriptCode(this.cookieConsentScripts);
-        } else if(this.cookieConsent === 'deny') {
-            //get initial plugin category settings - just activated values from yaml
-            this.setCookieConsentCategoriesArray();
-            //get initial plugin category settings - just activated values from yaml
-            this.setCookieConsentScriptsArrayWithZeroScriptCookies();       
-        } else{
-            //get initial plugin category settings - just activated values from yaml
-            this.setCookieConsentCategoriesArray();
-            //get initial plugin script settings - just activated values from yaml
-            this.setCookieConsentScriptsArray();
+            this.allowSettingsCookies();
+            this.setConsentScriptsToCookie(this.cookieConsentScriptsArray);
+            this.createScriptCode(this.cookieConsentScriptsArray);
+        } 
+         else{
+        //get initial plugin category settings - just activated values from yaml
+        this.setCookieConsentCategoriesArray();
+        //get initial plugin script settings - just activated values from yaml
+        this.setCookieConsentScriptsArray();
         }
-        //remove if exists to update items
+        //remove settings modal if exists to update items
         this.removeSettingsModal();
-        //create settings modal container
-        this.createSettingsModal(this.cookieConsent);
     }
 
     /**
@@ -135,6 +132,7 @@ class TecartCookieBanner{
     denyAllCookies() {
         this.deleteAllCookies();
         this.removeCodeTags();
+        this.removeSettingsModal();  
         //Set deny cookie
         const expires = this.cookieExpireDate();
         document.cookie = 'cookieconsent_status=deny;' + expires + ';path=/';
@@ -250,9 +248,7 @@ class TecartCookieBanner{
      * set categories from yaml file saved in cookieBannerCategories to active / not active and modify the cookie array CookieConsentCategoriesArray
      */
     setCookieConsentCategoriesArray(){
-
         let title;
-
         const json_data = this.cookieBannerCategories;
 
         if(json_data.length > 0 ){
@@ -286,70 +282,37 @@ class TecartCookieBanner{
      * set scripts from yaml file saved in cookieBannerScripts to active / not active and modify the cookie array CookieConsentScriptsArray
      */
     setCookieConsentScriptsArray(){
-
         let title;
-        const json_data = this.cookieBannerScripts;
+        // If 'dismiss', don't need to set cookieConsentScriptsArray.
+        const json_data = (this.cookieConsent === 'dismiss')?[]:this.cookieBannerScripts;
 
         if(json_data.length > 0 ){
+            this.cookieConsentScriptsArray = new Map();
             for(let i = 0; i < json_data.length; i++) {
-                //get all scripts and activate them
-                if(this.cookieConsent === "allow"){
-                    //must be encoded in cookie values
-                    title = encodeURIComponent(json_data[i].script_title);
-                    this.cookieConsentScriptsArray.set(title,{allowed:true})
-                }
-                else{
-                    //get just standard activated scripts
-                    if(json_data[i].script_cookies_standard === 'activated'){
-                        //must be encoded in cookie values
-                        title = encodeURIComponent(json_data[i].script_title);
-                        this.cookieConsentScriptsArray.set(title,{allowed:true})
+                //must be encoded in cookie values
+                title = encodeURIComponent(json_data[i].script_title);
+                if(this.cookieConsent === 'deny'){
+                    // Disable script with shown opt-in
+                    if (json_data[i].script_cookies_standard === 'activated' && json_data[i].script_cookies === '1'){
+                        this.cookieConsentScriptsArray.set(title,{allowed:false});
+                    } 
+                    // Active script with hidden opt-in
+                    if (json_data[i].script_cookies_standard === 'activated' && json_data[i].script_cookies === '0' ){
+                        this.cookieConsentScriptsArray.set(title,{allowed:true});
                     }
+                } else {
+                     // Active all scripts
+                    this.cookieConsentScriptsArray.set(title,{allowed:true});
                 }
-            }
+            }            
         }
         //set values to cookie cookieconsent_scripts
         this.setConsentScriptsToCookie(this.cookieConsentScriptsArray);
 
         const data = this.cookieConsentScriptsArray;
-
-        this.createScriptCode(data);
+        this.createScriptCode(data);        
     }
-
-     /**
-     * set scripts from yaml file saved in cookieBannerScripts to active / not active and modify the cookie array CookieConsentScriptsArray
-     */
-     setCookieConsentScriptsArrayWithZeroScriptCookies(){
-
-        let title;
-        const json_data = this.cookieBannerScripts;
-
-        if(json_data.length > 0 ){
-            for(let i = 0; i < json_data.length; i++) {
-                //get all scripts and activate them
-                if(this.cookieConsent === "allow"){
-                    //must be encoded in cookie values
-                    title = encodeURIComponent(json_data[i].script_title);
-                    this.cookieConsentScriptsArray.set(title,{allowed:true})
-                }
-                else{
-                    //get just standard activated scripts
-                    if(json_data[i].script_cookies_standard === 'activated' && json_data[i].script_cookies === '0' ){
-                        //must be encoded in cookie values
-                        title = encodeURIComponent(json_data[i].script_title);
-                        this.cookieConsentScriptsArray.set(title,{allowed:true})
-                    }
-                }
-            }
-        }
-        //set values to cookie cookieconsent_scripts
-        this.setConsentScriptsToCookie(this.cookieConsentScriptsArray);
-
-        const data = this.cookieConsentScriptsArray;
-
-        this.createScriptCode(data);
-    }
-
+     
     /**
      * push scripts from activated categories to allowed values in script cookies
      */
@@ -379,24 +342,49 @@ class TecartCookieBanner{
 
         const scriptArray = this.cookieBannerScripts; //available values from yaml
 
-        if(cookieArray.length > 0 && scriptArray.length > 0){
-            for(let i = 0; i < cookieArray.length; i++) {
+        if (cookieArray.length > 0 && scriptArray.length > 0) {
+            for (let i = 0; i < cookieArray.length; i++) {                
                 const cookieScriptTitleEncoded = cookieArray[i][0];
                 const cookieScriptTitle = decodeURIComponent(cookieScriptTitleEncoded);
-                if(scriptArray.length > 0 && cookieScriptTitle !== '' ) {
-                    for(let x = 0; x < scriptArray.length; x++) {
-                        if (scriptArray[x].script_title === cookieScriptTitle) {
-                            if(scriptArray[x].script_codes){
-                                const codes = scriptArray[x].script_codes;
-                                for(let y = 0; y < codes.length; y++) {
-                                    this.createCodeTag(codes[y], cookieScriptTitleEncoded, cookieScriptTitle);
+                this.cookieConsentOnScrollScriptsArray = new Map();
+                this.cookieConsentOnScrollScriptsArray.set(cookieScriptTitleEncoded, {"allowed": cookieArray[i][1].allowed});
+                // If cookie script is allowed
+                if (cookieArray[i][1].allowed) {
+                    // Match the elements in the scriptArray with those in the cookieArray
+                    if (scriptArray.length > 0 && cookieScriptTitle !== '') {
+                        for (let x = 0; x < scriptArray.length; x++) {
+                            if (scriptArray[x].script_title === cookieScriptTitle) {
+                                if (scriptArray[x].script_codes) {
+                                    // Retrieve codes that have to be implemented in tag
+                                    const codes = scriptArray[x].script_codes;
+                                    for (let y = 0; y < codes.length; y++) {
+                                        // Create tag with script
+                                        this.createCodeTag(codes[y], cookieScriptTitleEncoded, cookieScriptTitle);
+                                    }
                                 }
                             }
                         }
                     }
+                } else {  // If cookie script is rejected
+                    if (scriptArray.length > 0 && cookieScriptTitle !== '') {
+                        for (let x = 0; x < scriptArray.length; x++) {
+                            if (scriptArray[x].script_title === cookieScriptTitle) {
+                                scriptArray[x].script_cookies_standard = "deactivated";
+                            }
+                        }
+                    }
+
                 }
             }
         }
+
+        if(this.cookieConsent === 'dismiss'){
+            // Updating cookieBannerScripts with the consent value for each script
+            this.cookieBannerScripts = scriptArray;
+        }
+
+        
+
         this.setConsentOnScrollScriptsToCookie(this.cookieConsentOnScrollScriptsArray);
     }
 
@@ -654,7 +642,7 @@ class TecartCookieBanner{
             tabSection+
             '</div>' +
             '<div class="tcb-saveSettings">' +
-            '<a id="tcb-save-settings-btn" aria-label="save settings" role="button" tabIndex="0" class="button cc-btn '+tabSaveSettingsLayout+'">' +
+            '<a id="tcb-save-settings-btn" aria-label="dismiss cookies" role="button" tabIndex="0" class="button cc-btn cc-dismiss '+tabSaveSettingsLayout+'">' +
             tabSaveSettingsText+
             '</a>' +
             '</div>';
@@ -680,28 +668,26 @@ class TecartCookieBanner{
 
                     const scriptTitle = (tabScriptItems[x].script_title) ? tabScriptItems[x].script_title : '';
                     const scriptTitleEncoded = encodeURIComponent(scriptTitle);
-
-                    //set active switch toggler from cookie
-                    let activated = '';
-                    if(status === 'allow'){
-                        activated = "checked";
-                    }
-                    else if(this.cookieConsentScripts.length > 0){
-                        // if script in cookie array
-                        if( this.cookieConsentScripts.includes(scriptTitleEncoded) === true){
-                            activated = "checked";
-                        }
-                    }
-                    else{
-                        if (tabScriptItems[x].script_cookies_standard === 'activated') {
-                            activated = "checked";
-                        }
-                    }
-
+                    const scriptCookies = tabScriptItems[x].script_cookies;
+                    const scriptCookiesStandard = tabScriptItems[x].script_cookies_standard;
                     let readonly = '';
                     let readonlyClass = '';
                     let name = 'tcbCookieScripts';
-                    if(tabScriptItems[x].script_cookies === '0'){
+                    
+                    //set active switch toggler from cookie
+                    let activated = '';
+                    if(status === 'deny'){
+                        if (scriptCookies === '0' && scriptCookiesStandard === "activated" ) {
+                            activated = "checked";
+                        }
+                    } else {
+                        if ( scriptCookiesStandard === 'activated') {
+                            activated = "checked";
+                        }
+                                             
+                    }
+                    
+                    if(scriptCookies === '0'){
                         readonly = 'disabled="disabled"';
                         readonlyClass = 'disabled';
                         name = 'tcbDisabledCookieScripts';
@@ -730,39 +716,71 @@ class TecartCookieBanner{
         //delete Cookies to set them new
         this.deleteCookieByName('cookieconsent_scripts');
         this.deleteCookieByName('cookieconsent_categories');
-        this.deleteAllCookies();
+        this.deleteAllCookies();       
 
         let selectedScripts = [];
         let selectedCats = [];
-        let catScripts = [];
-
-        this.cookieConsentScriptsArray = new Map();
+        let catScripts = [];        
 
         //get selected scripts
-        selectedScripts = Array.from(document.querySelectorAll('input[name=tcbCookieScripts], input[name=tcbDisabledCookieScripts]'))
-            .filter((checkbox) => checkbox.checked)
-            .map((checkbox) => checkbox.value);
+        selectedScripts = Array.from(document.querySelectorAll('input[name=tcbCookieScripts], input[name=tcbDisabledCookieScripts]'));
 
         //add selected scripts to cookie
         if(selectedScripts.length > 0){
+            this.cookieConsentScriptsArray = new Map();
             for (let i = 0; i < selectedScripts.length; i++) {
-                this.cookieConsentScriptsArray.set(selectedScripts[i],{allowed:true});
+                this.cookieConsentScriptsArray.set(selectedScripts[i].value,{allowed:selectedScripts[i].checked});
             }
         }
 
+        //set new script tag codes
+        const data = this.cookieConsentScriptsArray;
+        
+        // Updating cookieBannerScripts
+        var cookieBanners = this.cookieBannerScripts;
+        for(let x = 0; x < cookieBanners.length; x++) {
+            const title = encodeURIComponent(cookieBanners[x].script_title);
+            const cdata = Array.from(data); 
+            for(let i = 0; i < cdata.length; i++){
+                const cookieScriptTitle = cdata[i][0];
+                const cookieScriptConsent = cdata[i][1].allowed;
+                if(title === cookieScriptTitle){
+                    cookieBanners[x].script_cookies_standard = cookieScriptConsent?"activated":"deactivated";
+                }
+            }
+        }
+        // Updates cookieBannerScripts
+        this.cookieBannerScripts = cookieBanners;
+
         //get selected categories
         selectedCats = Array.from(document.querySelectorAll('input[name=tcbCookieCategories]'))
-            .filter((checkbox) => checkbox.checked)
-            .map((checkbox) => checkbox.value);
 
         //add selected categories to cookie
         if(selectedCats.length > 0){
             for (let i = 0; i < selectedCats.length; i++) {
-                this.cookieConsentCategoriesArray.set(selectedCats[i],{allowed:true});
-                this.addScriptsFromAllowedCatToCookie(decodeURIComponent(selectedCats[i]));
+                this.cookieConsentCategoriesArray.set(selectedCats[i].value,{allowed:selectedCats[i].checked});
+                this.addScriptsFromAllowedCatToCookie(decodeURIComponent(selectedCats[i].value));
             }
         }
 
+        const catData = this.cookieConsentCategoriesArray;
+
+        // Updating cookieBannerCategories
+        var cookieBannersCats = this.cookieBannerCategories;
+        for(let x = 0; x < cookieBannersCats.length; x++) {
+            const title = encodeURIComponent(cookieBannersCats[x].category_title);
+            const ccatData = Array.from(catData);
+            for(let i = 0; i < ccatData.length; i++){
+                const cookieScriptCategoriesTitle = ccatData[i][0];
+                const cookieScriptCategoriesConsent = ccatData[i][1].allowed;
+                if(title === cookieScriptCategoriesTitle){
+                    cookieBannersCats[x].category_cookies = cookieScriptCategoriesConsent?"activated":"deactivated";
+                }
+            }
+        }
+        // Updates cookieBannerCategories
+        this.cookieBannerCategories = cookieBannersCats;
+        
         this.setConsentOnScrollScriptsToCookie(this.cookieConsentOnScrollScriptsArray);
         this.cookieConsentOnScrollScripts = this.getCookieByName('cookieconsent_onscroll_scripts');
 
@@ -775,12 +793,12 @@ class TecartCookieBanner{
 
         //remove current script tags
         this.removeCodeTags();
-
-        //set new script tag codes
-        const data = this.cookieConsentScriptsArray;
+        
         this.createScriptCode(data);
 
-        window.location.reload();
+        this.removeSettingsModal();
+
+        // window.location.reload();
     }
 
     /**

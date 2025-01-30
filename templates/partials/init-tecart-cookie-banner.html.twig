@@ -15,39 +15,41 @@ document.addEventListener("DOMContentLoaded", function() {
             tcb.init();
 
             {# Get the settings button and open settings modal onclick #}
-            const openModalButton = document.getElementsByClassName("tcb-settings-btn")[0];
-            if(openModalButton != null){
-                openModalButton.onclick = function(){
-                    document.getElementById("tcb-settings-modal").style.display = "block";
-                };
-            }
-
-            {# close the settings modal #}
-            const closeModal = document.getElementById("tcb-settings-close-btn");
-            if(closeModal != null) {
-                closeModal.onclick = function() {
-                    document.getElementById("tcb-settings-modal").style.display = "none";
+            document.getElementsByClassName("tcb-settings-btn")[0].addEventListener('click', () => {
+                {#  create settings modal container #}
+                if (window.sessionStorage['consent'] != '' || window.sessionStorage['consent'] != null) {              
+                    tcb.createSettingsModal(window.sessionStorage['consent']);
+                } else {                   
+                    tcb.createSettingsModal();
                 }
-            }
+                
+                document.getElementById("tcb-settings-modal").style.display = "block";
+                {# close the settings modal #}
+                document.getElementById("tcb-settings-close-btn").addEventListener('click', () => {
+                    document.getElementById("tcb-settings-modal").style.display = "none";
+                    tcb.removeSettingsModal();
+                });
 
-            {# save settings button on settings modal #}
-            {# close all modals, show revoke button #}
-            const saveSettingsModal = document.getElementById("tcb-save-settings-btn");
-            if(saveSettingsModal != null) {
-                saveSettingsModal.addEventListener('click', () => {
+                {# save settings button on settings modal #}
+                {# close all modals, show revoke button #}
+                const saveSettingsModal = document.getElementById("tcb-save-settings-btn");
+                if(saveSettingsModal != null) {
+                    saveSettingsModal.addEventListener('click', () => {
                     document.getElementById("tcb-settings-modal").style.display = "none";
                     document.getElementsByClassName("cc-window")[0].style.display = "none";
                     document.getElementsByClassName("cc-revoke")[0].style.display = "block";
                     document.getElementsByClassName("cc-window")[0].classList.add("cc-invisible");
                     tcb.onCheckboxSettings();
-                });
-            }
+                    });
+                }
 
-            {# prevent disabled checkboxes from click #}
-            const disabledCheckbox = document.querySelectorAll('input[name=tcbCookieScripts][disabled="disabled"]');
-            disabledCheckbox.onclick = function() {
-                return false;
-            };
+                {# prevent disabled checkboxes from click #}
+                const disabledCheckbox = document.querySelectorAll('input[name=tcbCookieScripts][disabled="disabled"]');
+                disabledCheckbox.onclick = function() {
+                    return false;
+                };
+
+                });
 
             {# scripts to load after scroll #}
             var page_scrolled = tcb.getCookieByName('cookieconsent_scrolled');
